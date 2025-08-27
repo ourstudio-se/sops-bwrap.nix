@@ -23,8 +23,8 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --templa
     let allows = $consumed_rest_args | get allowlist
 
     let cmd_length = $cmd | str length
-    let cmd_begin = $cmd | str index-of -g "\u{FE00}"
-    let cmd_end = $cmd | str index-of -g -e "\u{FE00}"
+    let cmd_begin = $cmd | str index-of -g $control_char
+    let cmd_end = $cmd | str index-of -g -e $control_char
 
     let cmd_ingress = if $cmd_begin > 0 {
         $cmd | str substring -g 0..($cmd_begin - 1)
