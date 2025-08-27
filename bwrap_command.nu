@@ -1,0 +1,64 @@
+#!/usr/bin/env -S nu --stdin
+
+def subst_tpl [control_char: string; replace_val: string; padding_before: bool] {
+    str replace $control_char (if $replace_val != "" { if $padding_before { " " + $replace_val } else { $replace_val + " " } } else "")
+}
+
+def consume_rest_args [rest_args: list<string>] {
+    $rest_args | reduce --fold { last_was_allowflag: false allowlist: [] } {|arg, acc|
+        if $arg == "--allow-key" {
+            $acc | upsert last_was_allowflag true
+        } else if ($acc | get last_was_allowflag) == true {
+            $acc | upsert last_was_allowflag false | upsert allowlist ($acc | get allowlist | append $arg)
+        } else {
+            error make { msg: $"Unknown argument passed to bwrap_command: ($arg)" }
+        }
+    } | select allowlist
+}
+
+def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --template: string, --arg-template: string = "'%k=%v'", ...argv: string] {
+    let vars = $in | from toml 
+    let cols = $vars | columns 
+    let consumed_rest_args = consume_rest_args $argv
+    let allows = $consumed_rest_args | get allowlist
+
+    let cmd_length = $cmd | str length
+    let cmd_begin = $cmd | str index-of -g "\u{FE00}"
+    let cmd_end = $cmd | str index-of -g -e "\u{FE00}"
+
+    let cmd_ingress = if $cmd_begin > 0 {
+        $cmd | str substring -g 0..($cmd_begin - 1)
+    } else ""
+
+    let cmd_egress = if $cmd_end != -1 and $cmd_end < $cmd_length - 1 {
+        $cmd | str substring -g ($cmd_end + 1)..
+    } else ""
+
+    let cmd_body = if $cmd_begin == -1 and $cmd_end == -1 { $cmd } else {
+        $cmd | str substring -g (if $cmd_begin != -1 {$cmd_begin} else 0)..(if $cmd_end != -1 {$cmd_end} else $cmd_length)
+    }
+
+    let filtered_cols = if ($allows | length) == 0 { $cols } else {
+        $allows | each {|it|
+            $cols | find -n --regex $it
+        } | flatten | uniq
+    } 
+
+    let args = $vars | select -o ...$filtered_cols 
+    let arg_str = $args | items {|key, value|
+        $arg_template | str replace '%k' $key | str replace '%v' $value | str trim --char "'"
+    } | str join " " 
+
+    $template 
+        | if ($arg_str | str length) > 0 {
+            str replace '%v' (" " + $arg_str) | str replace '%V' ($arg_str + " ")
+        } else {
+            $in
+        } 
+        | subst_tpl '%a' $cmd_ingress true
+        | subst_tpl '%A' $cmd_ingress false
+        | subst_tpl '%z' $cmd_egress true
+        | subst_tpl '%Z' $cmd_egress false
+        | str replace '%c' $cmd_body
+        | str replace -r '%.' ''
+}
