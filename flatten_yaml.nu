@@ -1,5 +1,3 @@
-#!/usr/bin/env -S nu --stdin
-
 def prefix [path: string, sep: string] {
     if ($in | is-empty) { $path } else { $in | append $path | str join $sep }
 }

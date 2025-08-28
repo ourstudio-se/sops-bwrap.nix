@@ -4,11 +4,14 @@
   runCommand,
   symlinkJoin,
   lib,
+  nushell,
   ...
 }:
 with builtins; let
-  bwrap-command = ./bwrap_command.nu;
-  flatten-yaml = ./flatten_yaml.nu;
+  writeNuWithStdin = writers.makeScriptWriter {interpreter = "${lib.getExe nushell} --no-config-file --stdin";};
+
+  bwrap-command = writeNuWithStdin "bwrap-command" (readFile ./bwrap_command.nu);
+  flatten-yaml = writeNuWithStdin "flatten_yaml" (readFile ./flatten_yaml.nu);
 
   explodeAllowList = allow:
     if (length allow) == 0
@@ -48,7 +51,7 @@ with builtins; let
       "|"
       "${bwrap-command}"
       "--control-char"
-      "\"${controlChar}\""
+      "${controlChar}"
       "--cmd"
       "${cmd}"
       "--template"
@@ -66,6 +69,8 @@ with builtins; let
           inherit cmd controlChar;
         }));
 in rec {
+  inherit bwrap-command flatten-yaml;
+
   wrapBinary = {
     bin,
     subcommand ? "",
@@ -140,7 +145,9 @@ in rec {
           $value != "--sops-wrapper-dry-run"
         }
 
-        let wrapped_cmd = [$"($control_char)($wrapped_binary)($control_char)"] ++ $cmd_args | str join " "
+        let full_command = $subcommand_args | str join " "
+
+        let wrapped_cmd = [$"($control_char)($full_command)($control_char)"] ++ $cmd_args | str join " "
 
         let cmd = if $arg_types.subcommand_miss {
           $wrapped_cmd

@@ -23,7 +23,7 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --templa
     let allows = $consumed_rest_args | get allowlist
 
     let cmd_length = $cmd | str length
-    let cmd_begin = $cmd | str index-of -g $control_char
+    let cmd_begin = $cmd | str index-of -g ($control_char)
     let cmd_end = $cmd | str index-of -g -e $control_char
 
     let cmd_ingress = if $cmd_begin > 0 {
@@ -44,7 +44,7 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --templa
         } | flatten | uniq
     } 
 
-    let args = $vars | select -o ...$filtered_cols 
+    let args = $vars | select -o ...$filtered_cols
     let arg_str = $args | items {|key, value|
         $arg_template | str replace '%k' $key | str replace '%v' $value | str trim --char "'"
     } | str join " " 

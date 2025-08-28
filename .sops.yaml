@@ -1,0 +1,8 @@
+keys:
+  - &max age1usl5hlmf67jdw2lzr9ju7z5cm8dzd4v3u6xu5w5k45967c0y6s5qf09n4p
+creation_rules:
+  - path_regex: .*
+    key_groups:
+      - age:
+        - *max
+

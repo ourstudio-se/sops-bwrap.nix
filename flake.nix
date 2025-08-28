@@ -2,6 +2,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    flake-compat.url = "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz";
   };
 
   outputs = {
@@ -11,7 +12,31 @@
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {inherit system;};
-    in {
-      packages.lib = pkgs.callPackage ./sops-bwrap.nix {};
-    });
+    in
+      with pkgs; rec {
+        packages.lib = callPackage ./sops-bwrap.nix {};
+
+        # Demo shell
+        devShells.demo = with packages.lib;
+          mkShell {
+            packages = [
+              nushell
+              sops
+              (
+                wrapApplication {
+                  package = docker;
+                  subcommand = "run";
+                  secretsYaml = ./demo-secrets.yaml;
+                  templates = [
+                    {
+                      template = "%A%c%v%z";
+                      argTemplate = ''-e \"%k=%v\"'';
+                    }
+                  ];
+                }
+              )
+            ];
+          };
+        devShells.default = devShells.demo;
+      });
 }
