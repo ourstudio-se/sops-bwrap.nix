@@ -50,15 +50,19 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --templa
     } | str join " " 
 
     $template 
-        | if ($arg_str | str length) > 0 {
-            str replace '%v' (" " + $arg_str) | str replace '%V' ($arg_str + " ")
+        | str replace '%v' (if ($arg_str | str length) > 0 {
+            " " + $arg_str
         } else {
-            $in
-        } 
+            ""
+        })
+        | str replace '%V' (if ($arg_str | str length) > 0 {
+            $arg_str + " "
+        } else {
+            ""
+        })
         | subst_tpl '%a' $cmd_ingress true
         | subst_tpl '%A' $cmd_ingress false
         | subst_tpl '%z' $cmd_egress true
         | subst_tpl '%Z' $cmd_egress false
         | str replace '%c' $cmd_body
-        | str replace -r '%.' ''
 }

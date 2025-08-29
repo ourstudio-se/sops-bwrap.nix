@@ -31,6 +31,9 @@
                     {
                       template = "%A%c%v%z";
                       argTemplate = ''-e \"%k=%v\"'';
+                      allow = [
+                        "PASSWORD"
+                      ];
                     }
                   ];
                 }
