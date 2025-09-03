@@ -43,6 +43,7 @@ with builtins; let
     argTemplate,
     allow ? [],
     strip ? [],
+    redact,
     namespaces ? [],
     ...
   } @ templateArgs: let
@@ -61,16 +62,21 @@ with builtins; let
       "\"${template}\""
       "--arg-template"
       "\"'${argTemplate}'\""
+      "--redact"
+      "${redact}"
     ])
     + (explodeAllowList allow)
     + (explodeStripList finalStrip)
     + ")";
 
-  wrapAllTemplates = controlChar:
+  wrapAllTemplates = {
+    controlChar,
+    redact,
+  }:
     foldl' (cmd: templateArgs:
       wrapCommandTemplate (templateArgs
         // {
-          inherit cmd controlChar;
+          inherit cmd controlChar redact;
         }));
 in rec {
   inherit bwrap-command flatten-yaml;
@@ -83,7 +89,14 @@ in rec {
     secretsYaml ? "",
     templates,
     ...
-  }:
+  }: let
+    wrappedTemplates =
+      wrapAllTemplates {
+        controlChar = "$control_char";
+        redact = "$redact";
+      } "$wrapped_cmd"
+      templates;
+  in
     writers.writeNuBin wrappedBinName {}
     /*
     nu
@@ -144,9 +157,10 @@ in rec {
         let other_args = $arg_types.other_args
 
         let dry_run = ($other_args | find "--sops-wrapper-dry-run" | length) > 0
+        let redact = ($other_args | find "--sops-wrapper-redact" | length) > 0
 
         let cmd_args = $other_args | where {|value|
-          $value != "--sops-wrapper-dry-run"
+          $value != "--sops-wrapper-dry-run" and $value != "--sops-wrapper-redact"
         }
 
         let full_command = $subcommand_args | str join " "
@@ -156,7 +170,7 @@ in rec {
         let cmd = if $arg_types.subcommand_miss {
           $wrapped_cmd
         } else {
-          ${wrapAllTemplates "$control_char" "$wrapped_cmd" templates}
+          ${wrappedTemplates}
         } | str replace -a $control_char ""
 
         if $dry_run {
