@@ -1,26 +1,81 @@
-#!/usr/bin/env -S nu --stdin
-
 def subst_tpl [control_char: string; replace_val: string; padding_before: bool] {
     str replace $control_char (if $replace_val != "" { if $padding_before { " " + $replace_val } else { $replace_val + " " } } else "")
 }
 
+let FLAG_TYPE_NONE = 0x00
+let FLAG_TYPE_STRIP = 0x01
+let FLAG_TYPE_ALLOW = 0x02
+
+def test_column [col: string, exclusive = false] {
+    if $exclusive {
+        $in | all {|pattern|
+            $col =~ $pattern
+        }
+    } else {
+        $in | any {|pattern|
+            $col =~ $pattern
+        }
+    }
+}
+
+def filter_vars [list: list<string>, exclusive = false] {
+    let vars = $in
+    if ($list | length) > 0 {
+        $vars | columns | reduce --fold $vars {|col, acc|
+            if ($list | test_column $col $exclusive) {
+                $acc
+            } else {
+                $acc | reject $col
+            }
+        }
+    } else {
+        $vars
+    }
+}
+
+def strip_vars [list: list<string>] {
+    let src = $in
+    $src | columns | reduce --fold {} {|col, acc|
+        let col_stripped = $list | reduce --fold $col {|pattern, inner_acc|
+            $inner_acc | str replace -r $pattern ""
+        }
+        $acc | upsert $col_stripped ($src | get $col)
+    }
+}
+
 def consume_rest_args [rest_args: list<string>] {
-    $rest_args | reduce --fold { last_was_allowflag: false allowlist: [] } {|arg, acc|
+    $rest_args | reduce --fold { last_flag: FLAG_TYPE_NONE allowlist: [] striplist: [] } {|arg, acc|
         if $arg == "--allow-key" {
-            $acc | upsert last_was_allowflag true
-        } else if ($acc | get last_was_allowflag) == true {
-            $acc | upsert last_was_allowflag false | upsert allowlist ($acc | get allowlist | append $arg)
+            $acc | upsert last_flag $FLAG_TYPE_ALLOW
+        } else if $arg == "--strip" {
+            $acc | upsert last_flag $FLAG_TYPE_STRIP
+        } else if $acc.last_flag == $FLAG_TYPE_ALLOW {
+            $acc | upsert last_flag $FLAG_TYPE_NONE | upsert allowlist ($acc.allowlist | append $arg)
+        } else if $acc.last_flag == $FLAG_TYPE_STRIP {
+            $acc | upsert last_flag $FLAG_TYPE_NONE | upsert striplist ($acc.striplist | append $arg)
         } else {
             error make { msg: $"Unknown argument passed to bwrap_command: ($arg)" }
         }
-    } | select allowlist
+    } | select allowlist striplist
 }
 
 def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --template: string, --arg-template: string = "'%k=%v'", ...argv: string] {
-    let vars = $in | from toml 
-    let cols = $vars | columns 
     let consumed_rest_args = consume_rest_args $argv
-    let allows = $consumed_rest_args | get allowlist
+    let allows = $consumed_rest_args.allowlist | inspect
+    let strips = $consumed_rest_args.striplist
+
+    let vars = $in | from toml | filter_vars $strips true | strip_vars $strips | filter_vars $allows false
+
+    # let cols = $vars | columns | (if ($allows | length) > 0 { where {|col|
+    #     $allows | any {|pattern|
+    #         $col =~ $pattern
+    #     }
+    # }} else { $in })
+    #
+    # let args = $vars | select -o ...$cols
+    let arg_str = $vars | items {|key, value|
+        $arg_template | str replace '%k' $key | str replace '%v' $value | str trim --char "'"
+    } | str join " " 
 
     let cmd_length = $cmd | str length
     let cmd_begin = $cmd | str index-of -g ($control_char)
@@ -37,17 +92,6 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --templa
     let cmd_body = if $cmd_begin == -1 and $cmd_end == -1 { $cmd } else {
         $cmd | str substring -g (if $cmd_begin != -1 {$cmd_begin} else 0)..(if $cmd_end != -1 {$cmd_end} else $cmd_length)
     }
-
-    let filtered_cols = if ($allows | length) == 0 { $cols } else {
-        $allows | each {|it|
-            $cols | find -n --regex $it
-        } | flatten | uniq
-    } 
-
-    let args = $vars | select -o ...$filtered_cols
-    let arg_str = $args | items {|key, value|
-        $arg_template | str replace '%k' $key | str replace '%v' $value | str trim --char "'"
-    } | str join " " 
 
     $template 
         | str replace '%v' (if ($arg_str | str length) > 0 {

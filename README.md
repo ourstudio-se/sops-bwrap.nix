@@ -178,6 +178,43 @@ dockerSops = wrapApplication {
 };
 ```
 
+### Namespaces
+
+You can define one or several namespaces per template:
+
+```nix
+wrapApplication {
+  templates = [
+    {
+      template = "%A%c%v%z";
+      argTemplate = ''-e \"%k=\"%v'';
+      namespaces = ["local.db"];
+    }
+  ];
+}
+```
+
+This translates into a strip list of regexes, which can also be specified manually. The code above is equal to:
+
+```nix
+wrapApplication {
+  templates = [
+    {
+      template = "%A%c%v%z";
+      argTemplate = ''-e \"%k=\"%v'';
+      strip = ["^local__db__"];
+    }
+  ];
+}
+```
+
+Namespaces can be combined with allow lists. Secrets variables are transformed in the following order:
+
+1. Strip list is applied as an *exclusive* filter (any key not matching *ALL* of the patterns is removed)
+2. All occurrences of each pattern in the strip list is removed from every variable key.
+2. Allow list is applied as an *non-exclusive* filter (any key not matching *ANY* of the patterns is removed)
+
+
 ## Maintainer
 
 Max Bolotin <max@ourstudio.se>

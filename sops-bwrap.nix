@@ -13,10 +13,9 @@ with builtins; let
   bwrap-command = writeNuWithStdin "bwrap-command" (readFile ./bwrap_command.nu);
   flatten-yaml = writeNuWithStdin "flatten_yaml" (readFile ./flatten_yaml.nu);
 
-  explodeAllowList = allow:
-    if (length allow) == 0
-    then ""
-    else foldl' (acc: pattern: acc + " --allow-key \"${pattern}\"") "" allow;
+  explodeList = parameter: foldl' (acc: pattern: acc + " --${parameter} \"${pattern}\"") "";
+  explodeAllowList = explodeList "allow-key";
+  explodeStripList = explodeList "strip";
 
   selectVarSource = {
     allowConfig ? true,
@@ -43,8 +42,12 @@ with builtins; let
     template ? "%A%c%z%v",
     argTemplate,
     allow ? [],
+    strip ? [],
+    namespaces ? [],
     ...
-  } @ templateArgs:
+  } @ templateArgs: let
+    finalStrip = strip ++ (map (ns: "^${replaceStrings ["."] ["__"] ns}__") namespaces);
+  in
     "("
     + (concatStringsSep " " [
       (selectVarSource templateArgs)
@@ -60,6 +63,7 @@ with builtins; let
       "\"'${argTemplate}'\""
     ])
     + (explodeAllowList allow)
+    + (explodeStripList finalStrip)
     + ")";
 
   wrapAllTemplates = controlChar:

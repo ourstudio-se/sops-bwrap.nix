@@ -16,7 +16,7 @@
       with pkgs; rec {
         packages.lib = callPackage ./sops-bwrap.nix {};
 
-        # Demo shell
+        ## Demo shell
         devShells.demo = with packages.lib;
           mkShell {
             packages = [
@@ -31,9 +31,8 @@
                     {
                       template = "%A%c%v%z";
                       argTemplate = ''-e \"%k=%v\"'';
-                      allow = [
-                        "PASSWORD"
-                      ];
+                      namespaces = ["db"];
+                      allow = ["PASSWORD"];
                     }
                   ];
                 }
