@@ -61,18 +61,11 @@ def consume_rest_args [rest_args: list<string>] {
 
 def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --template: string, --arg-template: string = "'%k=%v'", ...argv: string] {
     let consumed_rest_args = consume_rest_args $argv
-    let allows = $consumed_rest_args.allowlist | inspect
+    let allows = $consumed_rest_args.allowlist
     let strips = $consumed_rest_args.striplist
 
     let vars = $in | from toml | filter_vars $strips true | strip_vars $strips | filter_vars $allows false
 
-    # let cols = $vars | columns | (if ($allows | length) > 0 { where {|col|
-    #     $allows | any {|pattern|
-    #         $col =~ $pattern
-    #     }
-    # }} else { $in })
-    #
-    # let args = $vars | select -o ...$cols
     let arg_str = $vars | items {|key, value|
         $arg_template | str replace '%k' $key | str replace '%v' $value | str trim --char "'"
     } | str join " " 
