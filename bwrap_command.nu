@@ -6,23 +6,20 @@ let FLAG_TYPE_NONE = 0x00
 let FLAG_TYPE_STRIP = 0x01
 let FLAG_TYPE_ALLOW = 0x02
 
-def test_column [col: string, exclusive = false] {
-    if $exclusive {
-        $in | all {|pattern|
-            $col =~ $pattern
-        }
-    } else {
-        $in | any {|pattern|
-            $col =~ $pattern
-        }
+def test_column [col: string] {
+    $in | any {|pattern|
+        $col =~ $pattern
     }
 }
 
-def filter_vars [list: list<string>, exclusive = false] {
+def filter_vars [list: list<string>] {
     let vars = $in
     if ($list | length) > 0 {
         $vars | columns | reduce --fold $vars {|col, acc|
-            if ($list | test_column $col $exclusive) {
+            let matches = $list | any {|pattern|
+                $col =~ $pattern
+            }
+            if $matches {
                 $acc
             } else {
                 $acc | reject $col
@@ -64,7 +61,7 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --redact
     let allows = $consumed_rest_args.allowlist
     let strips = $consumed_rest_args.striplist
 
-    let vars = $in | from toml | filter_vars $strips true | strip_vars $strips | filter_vars $allows false
+    let vars = $in | from toml | filter_vars $strips | strip_vars $strips | filter_vars $allows
 
     let arg_str = $vars | items {|key, value|
         $arg_template | str replace '%k' $key | str replace '%v' (if $redact { "***" } else { $value }) | str trim --char "'"
