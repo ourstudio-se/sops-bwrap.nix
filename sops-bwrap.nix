@@ -84,7 +84,7 @@ in rec {
   wrapBinary = {
     bin,
     subcommand ? "",
-    wrappedBinName ? baseNameOf bin,
+    wrapperBinName ? baseNameOf bin,
     configYaml ? "",
     secretsYaml ? "",
     templates,
@@ -97,7 +97,7 @@ in rec {
       } "$wrapped_cmd"
       templates;
   in
-    writers.writeNuBin wrappedBinName {}
+    writers.writeNuBin wrapperBinName {}
     /*
     nu
     */
@@ -127,7 +127,7 @@ in rec {
 
         let all_vars = [$config_vars $secrets_vars] | str join "\n"
 
-        let control_char = "\u{FE00}"
+        let control_char = "\u{2000}"
 
         let subcommand = "${subcommand}"
         let subcommand_parts = if $subcommand == "" {
@@ -167,6 +167,9 @@ in rec {
 
         let wrapped_cmd = [$"($control_char)($full_command)($control_char)"] ++ $cmd_args | str join " "
 
+        { cmd_args_len: ($cmd_args | length) }
+        { start: ($wrapped_cmd | str index-of -g $control_char), end: ($wrapped_cmd | str index-of -e -g $control_char) }
+
         let cmd = if $arg_types.subcommand_miss {
           $wrapped_cmd
         } else {
@@ -187,6 +190,7 @@ in rec {
     packageName ? lib.getName package,
     wrappedBinName ? baseNameOf wrappedBin,
     wrappedMainProgram ? ".${wrappedBinName}-wrapped",
+    wrapperBinName ? wrappedBinName,
     ...
   } @ wrapperArgs: let
     wrappedPackage =
@@ -225,7 +229,7 @@ in rec {
         wrappedPackage
         (wrapBinary (wrapperArgs
           // {
-            inherit wrappedBinName;
+            inherit wrapperBinName;
             bin = "${wrappedPackage}/bin/${wrappedMainProgram}";
           }))
       ];

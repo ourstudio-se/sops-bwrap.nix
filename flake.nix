@@ -16,12 +16,28 @@
       with pkgs; rec {
         packages.lib = callPackage ./sops-bwrap.nix {};
 
+        packages.demo = packages.lib.wrapApplication {
+          package = writeShellScriptBin "demo" ''
+            echo "foo is $foo"
+          '';
+          secretsYaml = ./demo-secrets.yaml;
+          templates = [
+            {
+              template = "%V%A%c%z";
+              argTemplate = ''%k=\"%v\"'';
+              namespaces = ["other"];
+              allow = ["^foo$"];
+            }
+          ];
+        };
+
         ## Demo shell
         devShells.demo = with packages.lib;
           mkShell {
             packages = [
               nushell
               sops
+              packages.demo
               (
                 wrapApplication {
                   package = docker;
