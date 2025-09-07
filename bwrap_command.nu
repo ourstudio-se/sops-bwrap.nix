@@ -1,15 +1,9 @@
-def subst_tpl [control_char: string; replace_val: string; padding_before: bool] {
-    str replace $control_char (if $replace_val != "" { if $padding_before { " " + $replace_val } else { $replace_val + " " } } else "")
-}
-
 let FLAG_TYPE_NONE = 0x00
 let FLAG_TYPE_STRIP = 0x01
 let FLAG_TYPE_ALLOW = 0x02
 
-def test_column [col: string] {
-    $in | any {|pattern|
-        $col =~ $pattern
-    }
+def subst_tpl [control_char: string; replace_val: string; padding_before: bool] {
+    str replace $control_char (if $replace_val != "" { if $padding_before { " " + $replace_val } else { $replace_val + " " } } else "")
 }
 
 def filter_vars [list: list<string>] {
@@ -58,10 +52,10 @@ def consume_rest_args [rest_args: list<string>] {
 
 def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --redact = false, --template: string, --arg-template: string = "'%k=%v'", ...argv: string] {
     let consumed_rest_args = consume_rest_args $argv
-    let allows = $consumed_rest_args.allowlist
-    let strips = $consumed_rest_args.striplist
+    let allowlist = $consumed_rest_args.allowlist
+    let striplist = $consumed_rest_args.striplist
 
-    let vars = $in | from toml | filter_vars $strips | strip_vars $strips | filter_vars $allows
+    let vars = $in | from toml | filter_vars $striplist | strip_vars $striplist | filter_vars $allowlist
 
     let arg_str = $vars | items {|key, value|
         $arg_template | str replace '%k' $key | str replace '%v' (if $redact { "***" } else { $value }) | str trim --char "'"
