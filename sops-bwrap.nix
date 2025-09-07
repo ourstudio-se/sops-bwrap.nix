@@ -167,9 +167,6 @@ in rec {
 
         let wrapped_cmd = [$"($control_char)($full_command)($control_char)"] ++ $cmd_args | str join " "
 
-        { cmd_args_len: ($cmd_args | length) }
-        { start: ($wrapped_cmd | str index-of -g $control_char), end: ($wrapped_cmd | str index-of -e -g $control_char) }
-
         let cmd = if $arg_types.subcommand_miss {
           $wrapped_cmd
         } else {
