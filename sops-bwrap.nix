@@ -61,7 +61,7 @@ with builtins; let
       "--template"
       "\"${template}\""
       "--arg-template"
-      "\"'${argTemplate}'\""
+      "\"${argTemplate}\""
       "--redact"
       "${redact}"
     ])

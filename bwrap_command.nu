@@ -58,7 +58,7 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --redact
     let vars = $in | from toml | filter_vars $striplist | strip_vars $striplist | filter_vars $allowlist
 
     let arg_str = $vars | items {|key, value|
-        $arg_template | str replace '%k' $key | str replace '%v' (if $redact { "***" } else { $value }) | str trim --char "'"
+        $arg_template |  str replace '%k' $key | str replace '%v' (if $redact { "***" } else { $value })
     } | str join " " 
 
     let cmd_length = $cmd | str length

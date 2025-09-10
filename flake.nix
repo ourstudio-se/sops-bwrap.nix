@@ -24,7 +24,7 @@
           templates = [
             {
               template = "%V%A%c%z";
-              argTemplate = ''%k=\"%v\"'';
+              argTemplate = "%k='%v'";
               namespaces = ["other"];
               allow = ["^foo$"];
             }
