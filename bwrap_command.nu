@@ -58,7 +58,7 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --redact
     let vars = $in | from toml | filter_vars $striplist | strip_vars $striplist | filter_vars $allowlist
 
     let arg_str = $vars | items {|key, value|
-        $arg_template |  str replace '%k' $key | str replace '%v' (if $redact { "***" } else { $value })
+        $arg_template | base64 -d | str replace '%k' $key | str replace '%v' (if $redact { "***" } else { $value })
     } | str join " " 
 
     let cmd_length = $cmd | str length
@@ -78,16 +78,9 @@ def --wrapped main [--cmd: string, --control-char: string = "\u{FE00}", --redact
     }
 
     $template 
-        | str replace '%v' (if ($arg_str | str length) > 0 {
-            " " + $arg_str
-        } else {
-            ""
-        })
-        | str replace '%V' (if ($arg_str | str length) > 0 {
-            $arg_str + " "
-        } else {
-            ""
-        })
+        | base64 -d
+        | subst_tpl '%v' $arg_str true
+        | subst_tpl '%V' $arg_str false
         | subst_tpl '%a' $cmd_ingress true
         | subst_tpl '%A' $cmd_ingress false
         | subst_tpl '%z' $cmd_egress true

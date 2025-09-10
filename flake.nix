@@ -28,6 +28,12 @@
               namespaces = ["other"];
               allow = ["^foo$"];
             }
+            {
+              template = "%A%c%v%z";
+              argTemplate = "--variable %k='%v'";
+              namespaces = ["other"];
+              allow = ["^foo$"];
+            }
           ];
         };
 

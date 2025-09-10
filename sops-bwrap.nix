@@ -5,6 +5,7 @@
   symlinkJoin,
   lib,
   nushell,
+  coreutils,
   ...
 }:
 with builtins; let
@@ -59,9 +60,9 @@ with builtins; let
       "--cmd"
       "${cmd}"
       "--template"
-      "\"${template}\""
+      "(\"${template}\" | ${coreutils}/bin/base64)"
       "--arg-template"
-      "\"${argTemplate}\""
+      "(\"${argTemplate}\" | ${coreutils}/bin/base64)"
       "--redact"
       "${redact}"
     ])
